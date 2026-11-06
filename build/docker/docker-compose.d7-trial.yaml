@@ -1,0 +1,15 @@
+services:
+  vacuula-d7-trial:
+    image: ${VACUULA_TRIAL_IMAGE:?Set VACUULA_TRIAL_IMAGE in the trial compose.env}
+    pull_policy: never
+    platform: linux/arm64
+    network_mode: host
+    env_file:
+      - ${VACUULA_TRIAL_DIR:?Set VACUULA_TRIAL_DIR in the trial compose.env}/server.env
+    volumes:
+      - type: bind
+        source: ${VACUULA_TRIAL_DIR}/data
+        target: /server/data
+        bind:
+          create_host_path: false
+    restart: "no"

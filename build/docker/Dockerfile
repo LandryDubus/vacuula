@@ -29,8 +29,7 @@ RUN uv sync --frozen --no-dev --no-editable --no-install-project
 
 COPY server/src ./src
 
-RUN version="$(sed -nE 's/^version = "(.*)"/\1/p' pyproject.toml | head -1)" \
-    && printf 'APP_VERSION = "%s"\n' "${version:-0.0.0-dev}" > src/vacuula_server/_build_version.py
+RUN python -c "import pathlib, tomllib; version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']; pathlib.Path('src/vacuula_server/_build_version.py').write_text('APP_VERSION = ' + repr(version) + chr(10))"
 
 RUN uv sync --frozen --no-dev --no-editable
 
