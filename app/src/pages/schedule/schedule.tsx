@@ -18,6 +18,7 @@ import { usePersistentMaps } from '../../loaders/resources'
 import type { UseState } from '../../components/map/types'
 import { fetchAllGen3Boundaries, getCachedZones } from '../../loaders/gen3Boundaries'
 import { createScheduleOperations } from './gen3ScheduleOperations'
+import { formatUtcOffset, localSlotToUtc, utcSlotToLocal, type Weekday } from '../../utils/clockTime'
 
 export default function Schedule() {
     const { robot } = useRobot()
@@ -27,6 +28,7 @@ export default function Schedule() {
 function Gen3Schedule() {
     const { t } = useTranslation()
     const { robot, serverInfo } = useRobot()
+    const offset = serverInfo.utc_offset_minutes ?? 0
 
     const [drawerOpen, setDrawerOpen] = useState(false)
     const operations = useMemo(() => createScheduleOperations({
@@ -102,7 +104,7 @@ function Gen3Schedule() {
                     <div className={styles.info}>
                         <span>{t('schedule.schedule')}</span>
                         {serverInfo && (
-                            <span className={styles.type}>{serverInfo.timezone}</span>
+                            <span className={styles.type}>{serverInfo.timezone} ({formatUtcOffset(offset)})</span>
                         )}
                     </div>
                     <Input type="switch" skipSection={true} value={schedule.enabled} onChange={() => {
@@ -123,12 +125,13 @@ function Gen3Schedule() {
                 </div>
 
                 {schedule.events?.map((item, i) => {
+                    const local = utcSlotToLocal({ time: item.startTime, day: item.day as Weekday }, offset)
                     return (
                         <div key={i} className={styles.item}>
                             <div className={styles.info}>
-                                <span>{item.startTime}</span>
+                                <span>{local.time}</span>
                                 <span className={styles.type}>
-                                    {t('schedule.gen3Summary', { day: t(`days.${dayKey(item.day)}`), mode: CleaningMode[item.mode] })}
+                                    {t('schedule.gen3Summary', { day: t(`days.${dayKey(local.day)}`), mode: CleaningMode[item.mode] })}
                                     {item.boundary && ` | ${t('schedule.gen3SummaryZone', { zone: item.boundary.name })}`}
                                 </span>
                             </div>
@@ -181,6 +184,7 @@ function Gen3Schedule() {
                     <Input
                         type="time"
                         label={`${t('common.time')} (${serverInfo?.timezone ?? 'UTC'})`}
+                        extraInfo={t('schedule.gen3TimezoneHint')}
                         value={scheduleForm.startTime}
                         onChange={(startTime) => updateForm(SetScheduleForm, { startTime })} />
 
@@ -197,7 +201,10 @@ function Gen3Schedule() {
                     <Button text={t('common.save')} style='success' disabled={!canSave} onClick={() => {
                         if (!canSave) return
                         const { days, ...event } = scheduleForm
-                        const events = days.map(day => ({ ...event, day }))
+                        const events = days.map(day => {
+                            const utc = localSlotToUtc({ time: event.startTime, day: day as Weekday }, offset)
+                            return { ...event, startTime: utc.time, day: utc.day as RobotDay }
+                        })
                         void saveEvents([...events, ...schedule.events])
                     }} />
                 </fieldset>

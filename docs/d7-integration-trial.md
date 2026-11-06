@@ -2,6 +2,8 @@
 
 This branch, `test/d7-pr98-104-integration`, combines all seven PR heads. It retains the previously resolved scheduling/build conflicts: multi-day expansion and validation feed the confirmed-save controller; the drawer closes only after robot readback confirms the complete schedule. No firmware, installer, or robot endpoint configuration is changed by the build.
 
+It now also includes the separate `fix/gen3-schedule-timezone` correction. A real D7 run showed that an event displayed as 11:00 Europe/Paris ran at 12:00 during UTC+01:00. Upstream commit `871c3a2` had removed UTC/local conversion before PRs #98–#104. The correction restores display conversion and converts only newly entered events to UTC before saving; existing robot events remain unchanged. An existing 11:00 UTC event now displays as 12:00 Paris time. A new 11:00 Paris event is stored as 10:00 UTC in winter (09:00 UTC in summer). Weekdays shift with the time when conversion crosses midnight. Review schedules after daylight-saving changes: the robot stores fixed UTC repetitions, and this correction does not automatically rewrite them at seasonal transitions.
+
 The integration branch also fixes Docker version-file generation to parse `pyproject.toml` with Python instead of `sed`, so both CRLF and LF checkouts produce valid Python.
 
 The instructions below are for Docker Compose on **64-bit Raspberry Pi OS**. Run commands in Bash on the Pi, in the same shell unless indicated otherwise. They use a separate checkout, image tag, Compose project, and **copy** of the entire data directory. Your original container, image, and mounted data are retained for rollback. Nothing is deployed automatically.
@@ -194,6 +196,7 @@ References: [Docker volume backup/restore](https://docs.docker.com/engine/storag
 
 - All seven PR head commits are ancestors of the integration branch.
 - Strict frontend TypeScript checking and production bundling pass.
+- Timezone correction: 4,704 temporary UTC/local roundtrip checks passed across seven offsets and all weekdays, including midnight/week boundaries. Checks against the actual multi-weekday Save callback and confirmation controller passed for winter/summer offsets, unchanged existing UTC events, preserved zone assignments, and invalid-form blocking. The corrected build still needs a physical timed run; the previous physical run confirmed zone cleaning and exposed the timing bug.
 - The repository Dockerfile builds a `linux/arm64` image successfully.
 - The ARM64 image runs under local emulation with networking disabled, upgrades a simulated D7 database from the previous schema, serves `/api/server`, and retains the existing map and cleaning history. Startup retains the existing TLS certificate and key.
 - Compose configuration validates. The snapshot helper passes temporary simulated checks for read-only capture, private file permissions, refusing overwrites, requiring explicit restoration, preserving map/zone IDs, and reconciling a lost write reply without duplicate writes.
